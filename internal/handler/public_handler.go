@@ -1,48 +1,51 @@
 package handler
 
 import (
-	"ngabaca/database"
 	"ngabaca/internal/model"
+	"ngabaca/internal/repository"
 	"ngabaca/internal/utils"
 
 	"github.com/gofiber/fiber/v2"
 	"gorm.io/gorm"
 )
 
-// Home adalah handler untuk halaman utama.
-func Home(c *fiber.Ctx) error {
+type PublicHandler struct {
+	bookRepo     repository.BookRepository
+	categoryRepo repository.CategoryRepository
+}
+
+func NewPublicHandler(bookRepo repository.BookRepository, categoryRepo repository.CategoryRepository) *PublicHandler {
+	return &PublicHandler{
+		bookRepo:     bookRepo,
+		categoryRepo: categoryRepo,
+	}
+}
+
+func (h *PublicHandler) Home(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message": "Selamat datang di API Ngabaca!",
 	})
 }
 
-// GetCategories mengambil semua kategori.
-func GetCategories(c *fiber.Ctx) error {
-	var categories []model.Category
-	if err := database.DB.Find(&categories).Error; err != nil {
+func (h *PublicHandler) GetCategories(c *fiber.Ctx) error {
+	categories, err := h.categoryRepo.FindAll()
+	if err != nil {
 		return utils.GenericError(c, fiber.StatusInternalServerError, "Could not fetch categories")
 	}
 	return c.JSON(categories)
 }
 
-// GetBooks mengambil daftar buku dengan paginasi.
-func GetBooks(c *fiber.Ctx) error {
-	var books []model.Book
-	// Ambil semua buku dan preload kategori terkait
-	result := database.DB.Preload("Category").Find(&books)
-	if result.Error != nil {
+func (h *PublicHandler) GetBooks(c *fiber.Ctx) error {
+	books, err := h.bookRepo.FindAll()
+	if err != nil {
 		return utils.GenericError(c, fiber.StatusInternalServerError, "Could not fetch books")
 	}
 	return c.JSON(books)
 }
 
-// GetBookDetail mengambil detail satu buku berdasarkan slug.
-func GetBookDetail(c *fiber.Ctx) error {
+func (h *PublicHandler) GetBookDetail(c *fiber.Ctx) error {
 	slug := c.Params("slug")
-	var book model.Book
-
-	// Cari buku berdasarkan slug dan preload data kategori
-	err := database.DB.Preload("Category").Where("slug = ?", slug).First(&book).Error
+	book, err := h.bookRepo.FindBySlug(slug)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return utils.GenericError(c, fiber.StatusNotFound, "Book not found")
@@ -50,4 +53,17 @@ func GetBookDetail(c *fiber.Ctx) error {
 		return utils.GenericError(c, fiber.StatusInternalServerError, "Database error")
 	}
 	return c.JSON(book)
+}
+
+func (h *PublicHandler) SearchBooks(c *fiber.Ctx) error {
+	keyword := c.Query("q")
+	if keyword == "" {
+		return c.JSON([]model.Book{})
+	}
+
+	books, err := h.bookRepo.Search(keyword)
+	if err != nil {
+		return utils.GenericError(c, fiber.StatusInternalServerError, "Database query error")
+	}
+	return c.JSON(books)
 }

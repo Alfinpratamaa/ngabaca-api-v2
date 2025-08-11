@@ -87,7 +87,9 @@ func CheckRole(roles ...string) fiber.Handler {
 		}
 
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"error": "Access denied. You do not have the required role.",
+			"error":    "Access denied. You do not have the required role.",
+			"YourRole": userRole,
+			"Required": roles,
 		})
 	}
 }

@@ -1,0 +1,84 @@
+<h2 class="text-3xl font-bold border-b pb-2 mb-6">Admin: Orders Management</h2>
+<p class="text-gray-600 mb-6">
+  Endpoint untuk mengelola pesanan dari semua pengguna. Semua endpoint di sini
+  membutuhkan otentikasi dengan role **Admin**.
+</p>
+
+<div class="endpoint-card">
+  <div class="endpoint-header">
+    <h3 class="text-xl font-semibold">Get All Orders</h3>
+    <div class="flex items-center space-x-3 mt-2">
+      <span class="badge badge-get">GET</span>
+      <code class="text-gray-700 font-mono text-sm">/api/v2/admin/orders</code>
+      <span class="badge badge-auth">Admin Only</span>
+    </div>
+  </div>
+  <div class="endpoint-body">
+    <p class="text-gray-600 mb-4">
+      Mengambil daftar semua pesanan. Dapat difilter berdasarkan status.
+    </p>
+    <h4 class="font-semibold mb-2 text-gray-800">Query Parameters:</h4>
+    <div class="bg-gray-100 p-4 rounded-md">
+      <ul>
+        <li>
+          <code class="font-mono text-sm"
+            ><b>status</b> (string, optional):</code
+          >
+          Filter pesanan berdasarkan status. Nilai yang mungkin: `pending`,
+          `diproses`, `dikirim`, `selesai`, `batal`. Contoh:
+          <code>?status=diproses</code>
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="endpoint-card">
+  <div class="endpoint-header">
+    <h3 class="text-xl font-semibold">Get Order Detail (Admin)</h3>
+    <div class="flex items-center space-x-3 mt-2">
+      <span class="badge badge-get">GET</span>
+      <code class="text-gray-700 font-mono text-sm"
+        >/api/v2/admin/orders/{id}</code
+      >
+      <span class="badge badge-auth">Admin Only</span>
+    </div>
+  </div>
+  <div class="endpoint-body">
+    <p class="text-gray-600">
+      Mengambil detail lengkap satu pesanan berdasarkan UUID-nya.
+    </p>
+  </div>
+</div>
+
+<div class="endpoint-card">
+  <div class="endpoint-header">
+    <h3 class="text-xl font-semibold">Update Order Status</h3>
+    <div class="flex items-center space-x-3 mt-2">
+      <span class="badge badge-put">PUT</span>
+      <code class="text-gray-700 font-mono text-sm"
+        >/api/v2/admin/orders/{id}/status</code
+      >
+      <span class="badge badge-auth">Admin Only</span>
+    </div>
+  </div>
+  <div class="endpoint-body">
+    <p class="text-gray-600 mb-4">
+      Memperbarui status pesanan. Ganti `{id}` dengan UUID pesanan. Request body
+      harus berupa **JSON**.
+    </p>
+    <h4 class="font-semibold mb-2 text-gray-800">Request Body:</h4>
+    <div class="relative">
+      <pre
+        class="bg-gray-900 text-white p-4 rounded-md overflow-x-auto"
+      ><code class="language-json">{
+    "status": "dikirim"
+}</code></pre>
+      <button
+        class="copy-btn absolute top-2 right-2 bg-gray-700 hover:bg-gray-600 text-white text-xs px-2 py-1 rounded"
+      >
+        Copy
+      </button>
+    </div>
+  </div>
+</div>

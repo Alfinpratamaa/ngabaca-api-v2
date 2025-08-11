@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ngabaca API Documentation</title>
+    <meta
+      name="description"
+      content="API documentation for Ngabaca, a book reading platform."
+    />
+    <meta name="author" content="Ngabaca Team" />
+    <meta
+      name="keywords"
+      content="API, documentation, Ngabaca, books, reading"
+    />
+    <meta name="Ngabaca Website" content="https://ngabaca.me" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" href="/api/v2/docs/favicon.ico" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Mozilla+Headline:wght@200..700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./css/style.css" />
+  </head>
+  <body class="bg-gray-50 font-sans">
+    <div class="flex h-screen">
+      <aside class="w-1/4 h-screen overflow-y-auto bg-white border-r p-6 fixed">
+        <div class="flex items-center gap-3 mb-6">
+          <img
+            src="./favicon.ico"
+            alt="Ngabaca Logo"
+            class="w-12 h-12 rounded-full"
+          />
+          <h1 class="text-2xl font-bold text-cyan-800">Ngabaca API</h1>
+        </div>
+        <nav>
+          <ul class="space-y-2" id="nav-links">
+            <li>
+              <a
+                href="#auth"
+                class="nav-link block p-2 rounded-md hover:bg-gray-100"
+                >Authentication</a
+              >
+            </li>
+            <li>
+              <a
+                href="#public"
+                class="nav-link block p-2 rounded-md hover:bg-gray-100"
+                >Public Endpoints</a
+              >
+            </li>
+            <li>
+              <a
+                href="#profile"
+                class="nav-link block p-2 rounded-md hover:bg-gray-100"
+                >User Profile</a
+              >
+            </li>
+            <li>
+              <a
+                href="#customer"
+                class="nav-link block p-2 rounded-md hover:bg-gray-100"
+                >Customer Actions</a
+              >
+            </li>
+            <li>
+              <a
+                href="#admin_books"
+                class="nav-link block p-2 rounded-md hover:bg-gray-100"
+                >Admin: Books</a
+              >
+            </li>
+            <li>
+              <a
+                href="#admin_users"
+                class="nav-link block p-2 rounded-md hover:bg-gray-100"
+                >Admin: Users</a
+              >
+            </li>
+            <li>
+              <a
+                href="#admin_orders"
+                class="nav-link block p-2 rounded-md hover:bg-gray-100"
+                >Admin: Orders</a
+              >
+            </li>
+            <li>
+              <a
+                href="#webhook"
+                class="nav-link block p-2 rounded-md hover:bg-gray-100"
+                >Webhook</a
+              >
+            </li>
+          </ul>
+        </nav>
+      </aside>
+
+      <main id="content" class="w-3/4 ml-auto p-10 overflow-y-auto">
+        <div class="text-center mt-20">
+          <p class="text-gray-500">Loading documentation...</p>
+        </div>
+      </main>
+    </div>
+
+    <script src="./js/main.js"></script>
+  </body>
+</html>

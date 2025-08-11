@@ -1,33 +1,70 @@
-# Binaries for programs and plugins
+# ==== Go / GoFiber Project .gitignore (with Air live-reload) ====
+
+# Module & dependency artifacts
+/go.sum.ejected
+/vendor/          # Comment this out if you vendor dependencies intentionally
+
+# Build / distribution outputs
+/bin/
+/build/
+/dist/
+release/
+
+# Binaries (general)
 *.exe
+*.exe~
 *.dll
 *.so
 *.dylib
 *.test
-
-# Output of the go coverage tool
 *.out
 
-# Dependency directories (remove the comment below if you use Go modules)
-vendor/
+# Go coverage / profiling
+coverage.*
+coverage/
+*.cover
+*.cov
+*.pprof
+profile.out
 
-# Go workspace file
-go.work
-go.work.sum
+# Air (live reload) temporary build dir (default is ./tmp)
+tmp/
+.air/
+# Sometimes users set a custom tmp dir like tmp_build, build_tmp etc; add if you use them:
+# tmp_build/
+# build_tmp/
 
-# IDE/editor files
-.vscode/
-.idea/
-*.swp
-
-# env files
-*.env
-
-
+!.air.toml
+!.air.conf
+!.air.json
 
 # Logs
 *.log
+logs/
+log/
 
-# OS generated files
+# Environment / secrets
+.env
+.env.*
+*.env
+!.env.example
+
+# IDE / editor
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+
+# OS files
 .DS_Store
 Thumbs.db
+
+# Misc
+*.bak
+*.orig
+
+# If you produce any standalone binary at repo root (common in small services), ignore it:
+# (Matches executable files without an extension after first build)
+# Uncomment if desired:
+# /ngabaca-api-v2

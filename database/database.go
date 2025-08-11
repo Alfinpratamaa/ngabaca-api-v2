@@ -13,7 +13,7 @@ import (
 var DB *gorm.DB
 
 // ConnectDB menginisialisasi koneksi ke database dan melakukan auto-migrate.
-func ConnectDB(cfg config.Config) {
+func ConnectDB(cfg config.Config) *gorm.DB {
 	var err error
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s",
 		cfg.DBHost, cfg.DBUsername, cfg.DBPassword, cfg.DBDatabase, cfg.DBPort, cfg.DBSSLMode)
@@ -34,9 +34,11 @@ func ConnectDB(cfg config.Config) {
 		&model.Order{},
 		&model.OrderItem{},
 		&model.Payment{},
+		&model.Review{},
 	)
 	if err != nil {
 		log.Fatal("Gagal melakukan migrasi:", err)
 	}
 	fmt.Println("Migrasi database selesai.")
+	return DB
 }

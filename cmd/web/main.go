@@ -2,43 +2,26 @@ package main
 
 import (
 	"log"
-	"ngabaca/config"
-	"ngabaca/database"
-	"ngabaca/internal/routes"
-	"ngabaca/internal/scheduler"
+	"ngabaca/internal/routes" // <-- Import routes
+	"ngabaca/internal/server" // <-- Import server
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/robfig/cron/v3"
 )
 
 func main() {
-	// 1. Muat Konfigurasi
-	cfg, err := config.LoadConfig(".") // "." berarti cari di folder root
-	if err != nil {
-		log.Fatal("Tidak dapat memuat konfigurasi:", err)
-	}
+	// 1. Buat server yang sudah terkonfigurasi lengkap dari paket 'server'
+	server := server.NewServer()
 
-	// 2. Hubungkan ke Database
-	database.ConnectDB(cfg)
-
+	// 2. Jalankan scheduler (jika ada)
 	c := cron.New()
-
-	c.AddFunc("@every 5m", scheduler.CancelExpiredOrders)
-
+	// c.AddFunc(...)
 	go c.Start()
-
 	defer c.Stop()
 
-	// 3. Inisialisasi Fiber App
-	app := fiber.New()
+	// 3. Daftarkan semua rute dari paket 'routes'
+	routes.Setup(server)
 
-	// 4. Setup Routes
-	routes.SetupRoutes(app)
-
-	// 5. Jalankan Server
-	log.Printf("Server berjalan di %s", cfg.AppURL)
-	err = app.Listen(":3000") // Port bisa diambil dari config
-	if err != nil {
-		log.Fatal("Gagal menjalankan server:", err)
-	}
+	// 4. Jalankan server Fiber
+	log.Printf("Server berjalan di %s", server.Cfg.AppURL)
+	log.Fatal(server.App.Listen(":3000"))
 }

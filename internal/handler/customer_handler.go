@@ -3,62 +3,69 @@ package handler
 import (
 	"fmt"
 	"ngabaca/config"
-	"ngabaca/database"
 	"ngabaca/internal/model"
+	"ngabaca/internal/repository"
+	"ngabaca/internal/service"
 	"ngabaca/internal/utils"
-	"strconv"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	"github.com/midtrans/midtrans-go"
 	"github.com/midtrans/midtrans-go/snap"
 	"gorm.io/gorm"
 )
 
-type CheckoutItemRequest struct {
-	BookID   uint `json:"book_id" validate:"required"`
-	Quantity int  `json:"quantity" validate:"required,gt=0"`
+// CustomerHandler menampung semua dependency yang dibutuhkan untuk fitur-fitur pelanggan.
+type CustomerHandler struct {
+	orderRepo    repository.OrderRepository
+	userRepo     repository.UserRepository // Dibutuhkan untuk mengambil detail user saat checkout
+	orderService service.OrderService
+	reviewRepo   repository.ReviewRepository
+	cfg          config.Config
 }
 
-// CheckoutRequest merepresentasikan seluruh permintaan checkout.
-type CheckoutRequest struct {
-	Items           []CheckoutItemRequest `json:"items" validate:"required,min=1,dive"`
-	ShippingAddress string                `json:"shipping_address" validate:"required"`
-	Notes           string                `json:"notes"`
+// NewCustomerHandler adalah constructor untuk CustomerHandler.
+func NewCustomerHandler(
+	orderRepo repository.OrderRepository,
+	userRepo repository.UserRepository,
+	orderService service.OrderService,
+	reviewRepo repository.ReviewRepository,
+	cfg config.Config,
+) *CustomerHandler {
+	return &CustomerHandler{
+		orderRepo:    orderRepo,
+		userRepo:     userRepo,
+		reviewRepo:   reviewRepo,
+		orderService: orderService,
+		cfg:          cfg,
+	}
 }
 
-func GetCustomerOrders(c *fiber.Ctx) error {
+// GetCustomerOrders mengambil semua riwayat pesanan milik pengguna yang sedang login.
+func (h *CustomerHandler) GetCustomerOrders(c *fiber.Ctx) error {
 	userClaims := c.Locals("user").(jwt.MapClaims)
+	userID, _ := uuid.Parse(userClaims["user_id"].(string))
 
-	userID := uint(userClaims["user_id"].(float64))
-
-	var orders []model.Order
-
-	err := database.DB.Where("user_id = ?", userID).Preload("OrderItems.Book").Find(&orders).Error
-
+	orders, err := h.orderRepo.FindByUserID(userID)
 	if err != nil {
-		return utils.GenericError(c, fiber.StatusInternalServerError, "Database error")
+		return utils.GenericError(c, fiber.StatusInternalServerError, "Could not fetch orders")
 	}
 
 	return c.JSON(orders)
 }
 
-func GetCustomerOrderDetail(c *fiber.Ctx) error {
+// GetCustomerOrderDetail mengambil detail satu pesanan spesifik milik pengguna yang sedang login.
+func (h *CustomerHandler) GetCustomerOrderDetail(c *fiber.Ctx) error {
 	userClaims := c.Locals("user").(jwt.MapClaims)
-	userID := uint(userClaims["user_id"].(float64))
-	orderID := c.Params("id")
+	userID, _ := uuid.Parse(userClaims["user_id"].(string))
+	orderID, _ := uuid.Parse(c.Params("id"))
 
-	var order model.Order
-	// Pastikan pesanan yang diambil adalah milik user yang sedang login
-	err := database.DB.Where("id = ? AND user_id = ?", orderID, userID).
-		Preload("OrderItems.Book").
-		Preload("Payment").
-		First(&order).Error
-
+	order, err := h.orderRepo.FindByIDAndUserID(orderID, userID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			return utils.GenericError(c, fiber.StatusNotFound, "Order not found")
+			return utils.GenericError(c, fiber.StatusNotFound, "Order not found or you don't have permission to view it")
 		}
 		return utils.GenericError(c, fiber.StatusInternalServerError, "Database error")
 	}
@@ -66,105 +73,40 @@ func GetCustomerOrderDetail(c *fiber.Ctx) error {
 	return c.JSON(order)
 }
 
-func Checkout(c *fiber.Ctx) error {
-	req := new(CheckoutRequest)
-
-	userClaims := c.Locals("user").(jwt.MapClaims)
-	userID := uint(userClaims["user_id"].(float64))
-
+// Checkout memproses permintaan checkout dari pengguna.
+func (h *CustomerHandler) Checkout(c *fiber.Ctx) error {
+	// 1. Parse dan validasi request body menggunakan struct dari paket service.
+	req := new(service.CreateOrderRequest)
 	if err := c.BodyParser(req); err != nil {
 		return utils.GenericError(c, fiber.StatusBadRequest, "Invalid request body")
 	}
-
 	if errs := utils.ValidateStruct(req); errs != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"errors": errs})
 	}
 
-	var totalPrice float64
-	var orderItems []model.OrderItem
+	// 2. Ambil ID pengguna dari token.
+	userClaims := c.Locals("user").(jwt.MapClaims)
+	userID, _ := uuid.Parse(userClaims["user_id"].(string))
 
-	var midtransItems []midtrans.ItemDetails
-
-	err := database.DB.Transaction(func(tx *gorm.DB) error {
-		for _, item := range req.Items {
-			var book model.Book
-
-			if err := tx.First(&book, item.BookID).Error; err != nil {
-				return fmt.Errorf("Book with ID %d not found", item.BookID)
-			}
-
-			if book.Stock < item.Quantity {
-				return fmt.Errorf("Insufficient stock for book %s", book.Title)
-			}
-
-			newStock := book.Stock - item.Quantity
-			if err := tx.Model(&book).Update("stock", newStock).Error; err != nil {
-				return err
-			}
-
-			itemPrice := book.Price * float64(item.Quantity)
-			totalPrice += itemPrice
-			orderItems = append(orderItems, model.OrderItem{
-				BookID:   item.BookID,
-				Quantity: item.Quantity,
-				Price:    book.Price,
-			})
-
-			midtransItems = append(midtransItems, midtrans.ItemDetails{
-				ID:    strconv.Itoa(int(book.ID)),
-				Name:  book.Title,
-				Price: int64(book.Price),
-				Qty:   int32(item.Quantity),
-			})
-		}
-
-		order := model.Order{
-			UserID:          userID,
-			TotalPrice:      totalPrice,
-			Status:          "pending", // Status awal
-			ShippingAddress: req.ShippingAddress,
-			Notes:           req.Notes,
-			OrderItems:      orderItems,
-		}
-
-		if err := tx.Create(&order).Error; err != nil {
-			return err
-		}
-
-		c.Locals("order_id", order.ID)
-
-		payment := model.Payment{
-			OrderID:    order.ID,
-			Status:     "pending",
-			TotalPrice: order.TotalPrice,
-			Currency:   "IDR",
-			ExpiresAt:  time.Now().Add(24 * time.Hour),
-		}
-		if err := tx.Create(&payment).Error; err != nil {
-			return err
-		}
-
-		return nil
-	})
-
+	// 3. Panggil "Kepala Koki" (OrderService) untuk memproses semua logika bisnis yang kompleks.
+	order, totalPrice, err := h.orderService.CreateOrder(userID, req)
 	if err != nil {
+		// Error dari service bisa jadi karena stok tidak cukup, dll.
 		return utils.GenericError(c, fiber.StatusBadRequest, err.Error())
 	}
 
-	cfg, _ := config.LoadConfig(".")
+	// 4. Siapkan dan panggil Midtrans Snap (interaksi dengan layanan eksternal).
 	var s = snap.Client{}
-	s.New(cfg.MidtransServerKey, midtrans.Sandbox)
+	s.New(h.cfg.MidtransServerKey, midtrans.Sandbox)
 
-	orderID, _ := c.Locals("order_id").(uint)
-	var user model.User
-	database.DB.First(&user, userID)
+	// Ambil detail pengguna untuk Midtrans
+	user, _ := h.userRepo.FindByID(userID)
 
 	snapReq := &snap.Request{
 		TransactionDetails: midtrans.TransactionDetails{
-			OrderID:  fmt.Sprintf("NGABACA-%d-%d", orderID, time.Now().Unix()),
+			OrderID:  fmt.Sprintf("NGABACA-%s-%d", order.ID.String(), time.Now().Unix()),
 			GrossAmt: int64(totalPrice),
 		},
-		Items: &midtransItems,
 		CustomerDetail: &midtrans.CustomerDetails{
 			FName: user.Name,
 			Email: user.Email,
@@ -173,11 +115,62 @@ func Checkout(c *fiber.Ctx) error {
 	}
 
 	snapRes, errSnap := s.CreateTransaction(snapReq)
-
 	if errSnap != nil {
 		return utils.GenericError(c, fiber.StatusInternalServerError, "Failed to create Midtrans transaction")
 	}
 
+	// 5. Kembalikan respons dari Midtrans ke frontend.
 	return c.JSON(snapRes)
 
 }
+
+type CreateReviewRequest struct {
+	Rating  int    `json:"rating" validate:"required,min=1,max=5"`
+	Comment string `json:"comment" validate:"omitempty,max=500"`
+}
+
+func (h *CustomerHandler) CreateReview(c *fiber.Ctx) error {
+	req := new(CreateReviewRequest) // Anda mungkin perlu memindahkan struct ini juga
+	if err := c.BodyParser(req); err != nil {
+		return utils.GenericError(c, fiber.StatusBadRequest, "Invalid request body")
+	}
+	if errs := utils.ValidateStruct(req); errs != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"errors": errs})
+	}
+
+	bookID, _ := uuid.Parse(c.Params("id"))
+	userClaims := c.Locals("user").(jwt.MapClaims)
+	userID, _ := uuid.Parse(userClaims["user_id"].(string))
+
+	exists, err := h.reviewRepo.CheckExisting(userID, bookID)
+	if err != nil {
+		return utils.GenericError(c, fiber.StatusInternalServerError, "Error checking review")
+	}
+	if exists {
+		return utils.GenericError(c, fiber.StatusConflict, "You have already reviewed this book")
+	}
+
+	review := model.Review{
+		Rating:  req.Rating,
+		Comment: req.Comment,
+		BookID:  bookID,
+		UserID:  userID,
+	}
+
+	if err := h.reviewRepo.Create(&review); err != nil {
+		return utils.GenericError(c, fiber.StatusInternalServerError, "Failed to create review")
+	}
+	return c.Status(fiber.StatusCreated).JSON(review)
+}
+
+// GetBookReviews untuk mengambil semua ulasan dari sebuah buku.
+func (h *CustomerHandler) GetBookReviews(c *fiber.Ctx) error {
+	bookID, _ := uuid.Parse(c.Params("id"))
+	reviews, err := h.reviewRepo.FindByBookID(bookID)
+	if err != nil {
+		return utils.GenericError(c, fiber.StatusInternalServerError, "Could not fetch reviews")
+	}
+	return c.JSON(reviews)
+}
+
+// Anda juga perlu memindahkan struct CreateReviewRequest ke file ini

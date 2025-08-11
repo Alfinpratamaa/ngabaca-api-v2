@@ -1,0 +1,132 @@
+<h2 class="text-3xl font-bold border-b pb-2 mb-6">Admin: Books Management</h2>
+<p class="text-gray-600 mb-6">
+  Endpoint untuk mengelola data buku. Semua endpoint di sini membutuhkan
+  otentikasi dengan role **Admin**.
+</p>
+
+<div class="endpoint-card">
+  <div class="endpoint-header">
+    <h3 class="text-xl font-semibold">Get All Books (Admin)</h3>
+    <div class="flex items-center space-x-3 mt-2">
+      <span class="badge badge-get">GET</span>
+      <code class="text-gray-700 font-mono text-sm">/api/v2/admin/books</code>
+      <span class="badge badge-auth">Admin Only</span>
+    </div>
+  </div>
+  <div class="endpoint-body">
+    <p class="text-gray-600">Mengambil daftar semua buku yang ada di sistem.</p>
+  </div>
+</div>
+
+<div class="endpoint-card">
+  <div class="endpoint-header">
+    <h3 class="text-xl font-semibold">Create Book</h3>
+    <div class="flex items-center space-x-3 mt-2">
+      <span class="badge badge-post">POST</span>
+      <code class="text-gray-700 font-mono text-sm">/api/v2/admin/books</code>
+      <span class="badge badge-auth">Admin Only</span>
+    </div>
+  </div>
+  <div class="endpoint-body">
+    <p class="text-gray-600 mb-4">
+      Menambahkan buku baru. Endpoint ini dapat menerima **JSON** (tanpa gambar)
+      atau **Form-Data** (jika ingin mengunggah gambar sampul).
+    </p>
+    <h4 class="font-semibold mb-2 text-gray-800">Form-Data Fields:</h4>
+    <div class="bg-gray-100 p-4 rounded-md">
+      <ul class="list-disc list-inside">
+        <li>
+          <code class="font-mono text-sm">title (text)</code>: Judul buku.
+        </li>
+        <li>
+          <code class="font-mono text-sm">author (text)</code>: Penulis buku.
+        </li>
+        <li>
+          <code class="font-mono text-sm">price (text)</code>: Harga dalam
+          angka.
+        </li>
+        <li>
+          <code class="font-mono text-sm">stock (text)</code>: Jumlah stok.
+        </li>
+        <li>
+          <code class="font-mono text-sm">published_year (text)</code>: Tahun
+          terbit.
+        </li>
+        <li>
+          <code class="font-mono text-sm">category_id (text)</code>: UUID dari
+          kategori.
+        </li>
+        <li>
+          <code class="font-mono text-sm">description (text, optional)</code>:
+          Deskripsi buku.
+        </li>
+        <li>
+          <code class="font-mono text-sm">cover_image (file, optional)</code>:
+          File gambar sampul.
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="endpoint-card">
+  <div class="endpoint-header">
+    <h3 class="text-xl font-semibold">Get Book Detail (Admin)</h3>
+    <div class="flex items-center space-x-3 mt-2">
+      <span class="badge badge-get">GET</span>
+      <code class="text-gray-700 font-mono text-sm"
+        >/api/v2/admin/books/{id}</code
+      >
+      <span class="badge badge-auth">Admin Only</span>
+    </div>
+  </div>
+  <div class="endpoint-body">
+    <p class="text-gray-600 mb-4">
+      Mengambil detail satu buku berdasarkan UUID-nya.
+    </p>
+    <h4 class="font-semibold mb-2 text-gray-800">URL Parameters:</h4>
+    <div class="bg-gray-100 p-4 rounded-md">
+      <ul>
+        <li>
+          <code class="font-mono text-sm"><b>id</b> (uuid):</code> UUID dari
+          buku yang ingin dilihat.
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="endpoint-card">
+  <div class="endpoint-header">
+    <h3 class="text-xl font-semibold">Update Book</h3>
+    <div class="flex items-center space-x-3 mt-2">
+      <span class="badge badge-put">PUT</span>
+      <code class="text-gray-700 font-mono text-sm"
+        >/api/v2/admin/books/{id}</code
+      >
+      <span class="badge badge-auth">Admin Only</span>
+    </div>
+  </div>
+  <div class="endpoint-body">
+    <p class="text-gray-600 mb-4">
+      Memperbarui data buku. Ganti `{id}` dengan UUID buku. Endpoint ini juga
+      dapat menerima **JSON** atau **Form-Data**.
+    </p>
+  </div>
+</div>
+
+<div class="endpoint-card">
+  <div class="endpoint-header">
+    <h3 class="text-xl font-semibold">Delete Book</h3>
+    <div class="flex items-center space-x-3 mt-2">
+      <span class="badge badge-delete">DELETE</span>
+      <code class="text-gray-700 font-mono text-sm"
+        >/api/v2/admin/books/{id}</code
+      >
+      <span class="badge badge-auth">Admin Only</span>
+    </div>
+  </div>
+  <div class="endpoint-body">
+    <p class="text-gray-600">Menghapus buku berdasarkan UUID-nya.</p>
+  </div>
+</div>

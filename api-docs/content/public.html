@@ -1,0 +1,104 @@
+<h2 class="text-3xl font-bold border-b pb-2 mb-6">Public Endpoints</h2>
+<p class="text-gray-600 mb-6">
+  Endpoint berikut dapat diakses oleh siapa saja tanpa perlu otentikasi.
+</p>
+
+<div class="endpoint-card">
+  <div class="endpoint-header">
+    <h3 class="text-xl font-semibold">Get Book Catalog</h3>
+    <div class="flex items-center space-x-3 mt-2">
+      <span class="badge badge-get">GET</span>
+      <code class="text-gray-700 font-mono text-sm">/api/v2/catalog</code>
+    </div>
+  </div>
+  <div class="endpoint-body">
+    <p class="text-gray-600">Mengambil daftar semua buku yang tersedia.</p>
+  </div>
+</div>
+
+<div class="endpoint-card">
+  <div class="endpoint-header">
+    <h3 class="text-xl font-semibold">Get Book Detail</h3>
+    <div class="flex items-center space-x-3 mt-2">
+      <span class="badge badge-get">GET</span>
+      <code class="text-gray-700 font-mono text-sm">/api/v2/book/{slug}</code>
+    </div>
+  </div>
+  <div class="endpoint-body">
+    <p class="text-gray-600 mb-4">
+      Mengambil detail satu buku berdasarkan slug-nya.
+    </p>
+    <h4 class="font-semibold mb-2 text-gray-800">URL Parameters:</h4>
+    <div class="bg-gray-100 p-4 rounded-md">
+      <ul>
+        <li>
+          <code class="font-mono text-sm"><b>slug</b> (string):</code> Slug unik
+          dari buku yang ingin dilihat.
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="endpoint-card">
+  <div class="endpoint-header">
+    <h3 class="text-xl font-semibold">Get All Categories</h3>
+    <div class="flex items-center space-x-3 mt-2">
+      <span class="badge badge-get">GET</span>
+      <code class="text-gray-700 font-mono text-sm">/api/v2/categories</code>
+    </div>
+  </div>
+  <div class="endpoint-body">
+    <p class="text-gray-600">Mengambil daftar semua kategori buku.</p>
+  </div>
+</div>
+
+<div class="endpoint-card">
+  <div class="endpoint-header">
+    <h3 class="text-xl font-semibold">Search Books</h3>
+    <div class="flex items-center space-x-3 mt-2">
+      <span class="badge badge-get">GET</span>
+      <code class="text-gray-700 font-mono text-sm">/api/v2/search</code>
+    </div>
+  </div>
+  <div class="endpoint-body">
+    <p class="text-gray-600 mb-4">
+      Mencari buku berdasarkan judul atau penulis.
+    </p>
+    <h4 class="font-semibold mb-2 text-gray-800">Query Parameters:</h4>
+    <div class="bg-gray-100 p-4 rounded-md">
+      <ul>
+        <li>
+          <code class="font-mono text-sm"><b>q</b> (string):</code> Kata kunci
+          yang ingin dicari. Contoh: <code>?q=pemrograman</code>
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="endpoint-card">
+  <div class="endpoint-header">
+    <h3 class="text-xl font-semibold">Get Book Reviews</h3>
+    <div class="flex items-center space-x-3 mt-2">
+      <span class="badge badge-get">GET</span>
+      <code class="text-gray-700 font-mono text-sm"
+        >/api/v2/books/{id}/reviews</code
+      >
+    </div>
+  </div>
+  <div class="endpoint-body">
+    <p class="text-gray-600 mb-4">
+      Mengambil semua ulasan untuk buku tertentu.
+    </p>
+    <h4 class="font-semibold mb-2 text-gray-800">URL Parameters:</h4>
+    <div class="bg-gray-100 p-4 rounded-md">
+      <ul>
+        <li>
+          <code class="font-mono text-sm"><b>id</b> (uuid):</code> UUID dari
+          buku yang ulasannya ingin dilihat.
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>

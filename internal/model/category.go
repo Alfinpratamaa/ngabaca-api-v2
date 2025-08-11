@@ -1,10 +1,8 @@
 package model
 
-import "gorm.io/gorm"
-
 // Category mendefinisikan skema untuk tabel kategori buku.
 type Category struct {
-	gorm.Model
+	Basemodel
 	Name string `gorm:"unique;not null" json:"name"`
 	Slug string `gorm:"unique;not null" json:"slug"`
 

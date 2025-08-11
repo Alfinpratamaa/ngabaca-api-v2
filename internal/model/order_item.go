@@ -1,12 +1,14 @@
 package model
 
+import "github.com/google/uuid"
+
 // OrderItem mendefinisikan skema untuk setiap item dalam pesanan.
 type OrderItem struct {
-	ID       uint    `gorm:"primaryKey" json:"id"`
-	OrderID  uint    `gorm:"not null" json:"order_id"`
-	BookID   uint    `gorm:"not null" json:"book_id"`
-	Quantity int     `gorm:"not null" json:"quantity"`
-	Price    float64 `gorm:"not null" json:"price"`
+	Basemodel
+	OrderID  uuid.UUID `gorm:"not null" json:"order_id"`
+	BookID   uuid.UUID `gorm:"not null" json:"book_id"`
+	Quantity int       `gorm:"not null" json:"quantity"`
+	Price    float64   `gorm:"not null" json:"price"`
 
 	// Relasi
 	Order Order `gorm:"foreignKey:OrderID" json:"-"`

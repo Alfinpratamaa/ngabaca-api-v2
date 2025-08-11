@@ -1,112 +1,105 @@
 package handler
 
 import (
+	"context"
 	"ngabaca/config"
-	"ngabaca/database"
 	"ngabaca/internal/model"
+	"ngabaca/internal/repository"
 	"ngabaca/internal/utils"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
+	oauth2v2 "google.golang.org/api/oauth2/v2"
 	"gorm.io/gorm"
 )
 
-// RegisterRequest adalah struct untuk menampung data registrasi.
+type AuthHandler struct {
+	userRepo repository.UserRepository
+	cfg      config.Config
+}
+
+func NewAuthHandler(userRepo repository.UserRepository, cfg config.Config) *AuthHandler {
+	return &AuthHandler{
+		userRepo: userRepo,
+		cfg:      cfg,
+	}
+}
+
 type RegisterRequest struct {
 	Name     string `json:"name" validate:"required,min=3"`
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required,min=6"`
 }
 
-// LoginRequest adalah struct untuk menampung data login.
 type LoginRequest struct {
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required"`
 }
 
-// Register untuk mendaftarkan pengguna baru.
-func Register(c *fiber.Ctx) error {
+func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	req := new(RegisterRequest)
-
-	// Parse body request
 	if err := c.BodyParser(req); err != nil {
 		return utils.GenericError(c, fiber.StatusBadRequest, "Invalid request body")
 	}
-
-	// Validasi input
 	if errs := utils.ValidateStruct(req); errs != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"errors": errs})
 	}
 
-	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return utils.GenericError(c, fiber.StatusInternalServerError, "Failed to hash password")
 	}
 
-	// Buat user baru
-	user := model.User{
+	user := &model.User{
 		Name:     req.Name,
 		Email:    req.Email,
 		Password: string(hashedPassword),
-		Role:     "pelanggan", // Default role
+		Role:     "pelanggan",
 	}
 
-	// Simpan ke database
-	if err := database.DB.Create(&user).Error; err != nil {
+	// REFACTOR: Panggil repository untuk membuat user
+	createdUser, err := h.userRepo.Create(user)
+	if err != nil {
 		return utils.GenericError(c, fiber.StatusConflict, "Email already exists")
 	}
 
-	// Hapus password dari response
-	user.Password = ""
-
-	return c.Status(fiber.StatusCreated).JSON(user)
+	return c.Status(fiber.StatusCreated).JSON(createdUser)
 }
 
-// Login untuk mengautentikasi pengguna dan memberikan token JWT.
-func Login(c *fiber.Ctx) error {
+func (h *AuthHandler) Login(c *fiber.Ctx) error {
 	req := new(LoginRequest)
-
 	if err := c.BodyParser(req); err != nil {
 		return utils.GenericError(c, fiber.StatusBadRequest, "Invalid request body")
 	}
-
 	if errs := utils.ValidateStruct(req); errs != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"errors": errs})
 	}
 
-	var user model.User
-	// Cari user berdasarkan email
-	if err := database.DB.Where("email = ?", req.Email).First(&user).Error; err != nil {
+	// REFACTOR: Panggil repository untuk mencari user
+	user, err := h.userRepo.FindByEmail(req.Email)
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return utils.GenericError(c, fiber.StatusUnauthorized, "Invalid email or password")
 		}
 		return utils.GenericError(c, fiber.StatusInternalServerError, "Database error")
 	}
 
-	// Bandingkan password
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
 		return utils.GenericError(c, fiber.StatusUnauthorized, "Invalid email or password")
 	}
 
-	// Muat konfigurasi untuk JWT Secret
-	cfg, err := config.LoadConfig(".")
-	if err != nil {
-		return utils.GenericError(c, fiber.StatusInternalServerError, "Failed to load config")
-	}
-
 	// Buat JWT Claims
 	claims := jwt.MapClaims{
-		"user_id": user.ID,
+		"user_id": user.ID.String(), // Pastikan diubah ke string
 		"role":    user.Role,
-		"exp":     time.Now().Add(time.Hour * 72).Unix(), // Token berlaku 72 jam
+		"exp":     time.Now().Add(time.Hour * 72).Unix(),
 	}
 
-	// Buat token
+	// Buat token menggunakan config dari handler
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	t, err := token.SignedString([]byte(cfg.JWTSecret))
+	t, err := token.SignedString([]byte(h.cfg.JWTSecret))
 	if err != nil {
 		return utils.GenericError(c, fiber.StatusInternalServerError, "Failed to create token")
 	}
@@ -114,15 +107,49 @@ func Login(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"token": t})
 }
 
-// GoogleLogin - Placeholder
-func GoogleLogin(c *fiber.Ctx) error {
-	// TODO: Implementasi redirect ke halaman login Google
-	return c.SendString("Redirect to Google Login")
+func (h *AuthHandler) GoogleLogin(c *fiber.Ctx) error {
+	url := utils.GoogleOAuthConfig.AuthCodeURL("state-string")
+	return c.Redirect(url, fiber.StatusTemporaryRedirect)
 }
 
-// GoogleCallback - Placeholder
-func GoogleCallback(c *fiber.Ctx) error {
-	// TODO: Implementasi callback dari Google, tukar kode dengan token,
-	// lalu buat atau login user dan generate JWT lokal.
-	return c.SendString("Handling Google Callback")
+func (h *AuthHandler) GoogleCallback(c *fiber.Ctx) error {
+	code := c.Query("code")
+	if code == "" {
+		return utils.GenericError(c, fiber.StatusBadRequest, "Authorization code not provided")
+	}
+
+	token, err := utils.GoogleOAuthConfig.Exchange(context.Background(), code)
+	if err != nil {
+		return utils.GenericError(c, fiber.StatusInternalServerError, "Failed to exchange token: "+err.Error())
+	}
+
+	client := utils.GoogleOAuthConfig.Client(context.Background(), token)
+	service, err := oauth2v2.New(client)
+	if err != nil {
+		return utils.GenericError(c, fiber.StatusInternalServerError, "Failed to create Google service client")
+	}
+	userInfo, err := service.Userinfo.Get().Do()
+	if err != nil {
+		return utils.GenericError(c, fiber.StatusInternalServerError, "Failed to get user info")
+	}
+
+	// REFACTOR: Panggil repository untuk logika find-or-create
+	user, err := h.userRepo.FindOrCreateByGoogle(userInfo)
+	if err != nil {
+		return utils.GenericError(c, fiber.StatusInternalServerError, "Database transaction error: "+err.Error())
+	}
+
+	// Buat token JWT lokal (logika sama seperti Login)
+	claims := jwt.MapClaims{
+		"user_id": user.ID.String(),
+		"role":    user.Role,
+		"exp":     time.Now().Add(time.Hour * 72).Unix(),
+	}
+	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	t, err := jwtToken.SignedString([]byte(h.cfg.JWTSecret))
+	if err != nil {
+		return utils.GenericError(c, fiber.StatusInternalServerError, "Failed to create local JWT")
+	}
+
+	return c.JSON(fiber.Map{"token": t})
 }

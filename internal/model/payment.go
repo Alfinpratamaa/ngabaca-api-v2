@@ -3,13 +3,13 @@ package model
 import (
 	"time"
 
-	"gorm.io/gorm"
+	"github.com/google/uuid"
 )
 
 // Payment mendefinisikan skema untuk tabel pembayaran.
 type Payment struct {
-	gorm.Model
-	OrderID                uint      `gorm:"unique;not null" json:"order_id"`
+	Basemodel
+	OrderID                uuid.UUID `gorm:"type:uuid;not null" json:"order_id"`
 	TransactionID          string    `json:"transaction_id"`
 	TotalPrice             float64   `gorm:"not null" json:"total_price"`
 	Currency               string    `gorm:"default:'IDR'" json:"currency"`

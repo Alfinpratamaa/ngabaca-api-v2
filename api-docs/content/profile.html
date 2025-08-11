@@ -1,0 +1,79 @@
+<h2 class="text-3xl font-bold border-b pb-2 mb-6">User Profile</h2>
+<p class="text-gray-600 mb-6">
+  Endpoint untuk mengelola profil pengguna yang sedang login. Semua endpoint di
+  sini membutuhkan otentikasi (Bearer Token).
+</p>
+
+<div class="endpoint-card">
+  <div class="endpoint-header">
+    <h3 class="text-xl font-semibold">Get My Profile</h3>
+    <div class="flex items-center space-x-3 mt-2">
+      <span class="badge badge-get">GET</span>
+      <code class="text-gray-700 font-mono text-sm">/api/v2/me</code>
+      <span class="badge badge-auth">Protected</span>
+    </div>
+  </div>
+  <div class="endpoint-body">
+    <p class="text-gray-600">
+      Mengambil detail profil dari pengguna yang sedang login.
+    </p>
+  </div>
+</div>
+
+<div class="endpoint-card">
+  <div class="endpoint-header">
+    <h3 class="text-xl font-semibold">Update My Profile</h3>
+    <div class="flex items-center space-x-3 mt-2">
+      <span class="badge badge-put">PUT</span>
+      <code class="text-gray-700 font-mono text-sm">/api/v2/me</code>
+      <span class="badge badge-auth">Protected</span>
+    </div>
+  </div>
+  <div class="endpoint-body">
+    <p class="text-gray-600 mb-4">
+      Memperbarui nama atau nomor telepon pengguna. Request body harus berupa
+      **JSON**.
+    </p>
+    <h4 class="font-semibold mb-2 text-gray-800">Request Body:</h4>
+    <div class="relative">
+      <pre
+        class="bg-gray-900 text-white p-4 rounded-md overflow-x-auto"
+      ><code class="language-json">{
+    "name": "Nama Baru Saya",
+    "phone_number": "081234567891"
+}</code></pre>
+      <button
+        class="copy-btn absolute top-2 right-2 bg-gray-700 hover:bg-gray-600 text-white text-xs px-2 py-1 rounded"
+      >
+        Copy
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="endpoint-card">
+  <div class="endpoint-header">
+    <h3 class="text-xl font-semibold">Upload Avatar</h3>
+    <div class="flex items-center space-x-3 mt-2">
+      <span class="badge badge-post">POST</span>
+      <code class="text-gray-700 font-mono text-sm">/api/v2/me/avatar</code>
+      <span class="badge badge-auth">Protected</span>
+    </div>
+  </div>
+  <div class="endpoint-body">
+    <p class="text-gray-600 mb-4">
+      Mengunggah gambar profil baru. Request body harus berupa **Form-Data**.
+    </p>
+    <h4 class="font-semibold mb-2 text-gray-800">Form-Data Fields:</h4>
+    <div class="bg-gray-100 p-4 rounded-md">
+      <ul>
+        <li>
+          <code class="font-mono text-sm"
+            ><b>key:</b> avatar, <b>type:</b> File, <b>value:</b> (pilih file
+            gambar Anda dari komputer)</code
+          >
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>

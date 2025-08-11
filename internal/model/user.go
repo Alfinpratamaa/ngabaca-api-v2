@@ -1,10 +1,8 @@
 package model
 
-import "gorm.io/gorm"
-
 // User mendefinisikan skema untuk tabel pengguna.
 type User struct {
-	gorm.Model
+	Basemodel
 	Name        string `gorm:"not null" json:"name"`
 	Email       string `gorm:"unique;not null" json:"email"`
 	GoogleID    string `gorm:"unique" json:"google_id,omitempty"`
@@ -16,4 +14,5 @@ type User struct {
 	// Relasi
 	Orders           []Order   `gorm:"foreignKey:UserID" json:"orders,omitempty"`
 	VerifiedPayments []Payment `gorm:"foreignKey:VerifiedBy" json:"verified_payments,omitempty"`
+	Reviews          []Review  `gorm:"foreignKey:UserID" json:"reviews,omitempty"`
 }

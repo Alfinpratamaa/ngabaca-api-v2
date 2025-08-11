@@ -1,0 +1,27 @@
+<h2 class="text-3xl font-bold border-b pb-2 mb-6">Webhook</h2>
+<p class="text-gray-600 mb-6">
+  Endpoint yang tidak dipanggil oleh pengguna, melainkan oleh layanan eksternal.
+</p>
+
+<div class="endpoint-card">
+  <div class="endpoint-header">
+    <h3 class="text-xl font-semibold">Midtrans Notification</h3>
+    <div class="flex items-center space-x-3 mt-2">
+      <span class="badge badge-post">POST</span>
+      <code class="text-gray-700 font-mono text-sm"
+        >/midtrans/notification</code
+      >
+    </div>
+  </div>
+  <div class="endpoint-body">
+    <p class="text-gray-600">
+      Endpoint ini menerima notifikasi status pembayaran dari Midtrans. Midtrans
+      akan mengirim request ke URL ini setiap kali ada perubahan status pada
+      transaksi. Backend akan memvalidasi dan memperbarui status pesanan secara
+      otomatis.
+    </p>
+    <p class="text-gray-600 mt-2">
+      Lihat dokumentasi resmi Midtrans untuk format payload yang lengkap.
+    </p>
+  </div>
+</div>
