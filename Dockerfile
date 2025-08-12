@@ -1,5 +1,5 @@
 
-FROM golang:1.22-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
@@ -18,6 +18,10 @@ COPY --from=builder /ngabaca-api /ngabaca-api
 
 COPY app.env .
 COPY public ./public
+
+copy api-docs ./api-docs
+
+
 
 EXPOSE 3000
 
