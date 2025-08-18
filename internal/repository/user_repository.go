@@ -67,7 +67,7 @@ func (r *userRepository) FindOrCreateByGoogle(userInfo *oauth2v2.Userinfo) (mode
 				// Jika tidak ada, coba cari berdasarkan email
 				if err := tx.Where("email = ?", userInfo.Email).First(&user).Error; err == nil {
 					// Email ada, user pernah daftar manual. Update Google ID-nya.
-					user.GoogleID = userInfo.Id
+					user.GoogleID = &userInfo.Id
 					user.Avatar = userInfo.Picture // Update avatar juga
 					return tx.Save(&user).Error
 				}
@@ -76,7 +76,7 @@ func (r *userRepository) FindOrCreateByGoogle(userInfo *oauth2v2.Userinfo) (mode
 				newUser := model.User{
 					Name:     userInfo.Name,
 					Email:    userInfo.Email,
-					GoogleID: userInfo.Id,
+					GoogleID: &userInfo.Id,
 					Avatar:   userInfo.Picture,
 					Role:     "pelanggan",
 				}

@@ -62,7 +62,7 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	// REFACTOR: Panggil repository untuk membuat user
 	createdUser, err := h.userRepo.Create(user)
 	if err != nil {
-		return utils.GenericError(c, fiber.StatusConflict, "Email already exists")
+		return utils.GenericError(c, fiber.StatusConflict, err.Error())
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(createdUser)

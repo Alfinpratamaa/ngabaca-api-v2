@@ -20,6 +20,6 @@ type Book struct {
 	Reviews     []Review    `gorm:"foreignKey:BookID" json:"reviews,omitempty"`
 	AvgRating   float64     `gorm:"-" json:"avg_rating"`
 	ReviewCount int         `gorm:"-" json:"review_count"`
-	Category    Category    `gorm:"foreignKey:CategoryID" json:"category"`
+	Category    Category    `gorm:"foreignKey:CategoryID" json:"-"`
 	OrderItems  []OrderItem `gorm:"foreignKey:BookID" json:"-"`
 }
