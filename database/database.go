@@ -1,16 +1,36 @@
 package database
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"ngabaca/config"
 	"ngabaca/internal/model"
 
+	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 var DB *gorm.DB
+
+var RDB *redis.Client
+
+func ConnectRedis(cfg config.Config) {
+	RDB = redis.NewClient(&redis.Options{
+		Addr:     cfg.RedisAddr,
+		Password: cfg.RedisPassword,
+		DB:       cfg.RedisDB,
+	})
+
+	// Tes koneksi
+	_, err := RDB.Ping(context.Background()).Result()
+	if err != nil {
+		panic(fmt.Sprintf("Gagal terhubung ke Redis: %v", err))
+	}
+
+	fmt.Println("Koneksi Redis berhasil.")
+}
 
 // ConnectDB menginisialisasi koneksi ke database dan melakukan auto-migrate.
 func ConnectDB(cfg config.Config) *gorm.DB {

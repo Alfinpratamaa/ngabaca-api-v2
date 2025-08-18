@@ -40,6 +40,7 @@ func NewServer() *Server {
 
 	// Hubungkan DB
 	db := database.ConnectDB(cfg)
+	database.ConnectRedis(cfg)
 
 	// seed database
 	if err := database.SeedCategories(db); err != nil {
@@ -50,7 +51,7 @@ func NewServer() *Server {
 	bookRepo := repository.NewBookRepository(db)
 	userRepo := repository.NewUserRepository(db)
 	orderRepo := repository.NewOrderRepository(db)
-	categoryRepo := repository.NewCategoryRepository(db)
+	categoryRepo := repository.NewCategoryRepository(db, database.RDB)
 	reviewRepo := repository.NewReviewRepository(db)
 	paymentRepo := repository.NewPaymentRepository(db)
 

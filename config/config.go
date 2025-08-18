@@ -29,6 +29,9 @@ type Config struct {
 	GoogleClientID       string `mapstructure:"GOOGLE_CLIENT_ID"`
 	GoogleClientSecret   string `mapstructure:"GOOGLE_CLIENT_SECRET"`
 	GoogleRedirectURI    string `mapstructure:"GOOGLE_REDIRECT_URI"`
+	RedisAddr            string `mapstructure:"REDIS_ADDR"`
+	RedisPassword        string `mapstructure:"REDIS_PASSWORD"`
+	RedisDB              int    `mapstructure:"REDIS_DB"`
 }
 
 func LoadConfig(path string) (config Config, err error) {
