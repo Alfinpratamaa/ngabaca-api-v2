@@ -54,6 +54,7 @@ func NewServer() *Server {
 	categoryRepo := repository.NewCategoryRepository(db, database.RDB)
 	reviewRepo := repository.NewReviewRepository(db)
 	paymentRepo := repository.NewPaymentRepository(db)
+	whistlistRepo := repository.NewWishlistRepository(db)
 
 	orderService := service.NewOrderService(db, bookRepo, orderRepo, paymentRepo)
 	paymentService := service.NewPaymentService(db, orderRepo, paymentRepo)
@@ -61,7 +62,7 @@ func NewServer() *Server {
 	adminHandler := handler.NewAdminHandler(bookRepo, userRepo, orderRepo, cfg)
 	authHandler := handler.NewAuthHandler(userRepo, cfg)
 	publicHandler := handler.NewPublicHandler(bookRepo, categoryRepo)
-	customerHandler := handler.NewCustomerHandler(orderRepo, userRepo, orderService, reviewRepo, cfg)
+	customerHandler := handler.NewCustomerHandler(orderRepo, userRepo, orderService, reviewRepo, whistlistRepo, cfg)
 	paymentHandler := handler.NewPaymentHandler(paymentService)
 	userHandler := handler.NewUserHandler(userRepo, cfg)
 

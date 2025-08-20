@@ -20,6 +20,8 @@ type AuthHandler struct {
 	cfg      config.Config
 }
 
+var expiredTime = time.Now().Add(time.Hour * 24).Unix()
+
 func NewAuthHandler(userRepo repository.UserRepository, cfg config.Config) *AuthHandler {
 	return &AuthHandler{
 		userRepo: userRepo,
@@ -92,9 +94,9 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 
 	// Buat JWT Claims
 	claims := jwt.MapClaims{
-		"user_id": user.ID.String(), // Pastikan diubah ke string
+		"user_id": user.ID.String(),
 		"role":    user.Role,
-		"exp":     time.Now().Add(time.Hour * 72).Unix(),
+		"exp":     expiredTime,
 	}
 
 	// Buat token menggunakan config dari handler

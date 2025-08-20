@@ -30,6 +30,7 @@ func Setup(s *server.Server) {
 	api.Get("/catalog", s.PublicHandler.GetBooks)
 	api.Get("/book/:slug", s.PublicHandler.GetBookDetail)
 	api.Get("/categories", s.PublicHandler.GetCategories)
+	api.Get("/categories/:id", s.PublicHandler.GetCategoryByID)
 	api.Get("/search", s.PublicHandler.SearchBooks)
 	// Rute publik untuk melihat ulasan dipindahkan ke CustomerHandler
 	api.Get("/books/:id/reviews", s.CustomerHandler.GetBookReviews)
@@ -46,6 +47,11 @@ func Setup(s *server.Server) {
 	me.Get("/", s.UserHandler.GetMyProfile)
 	me.Put("/", s.UserHandler.UpdateMyProfile)
 	me.Post("/avatar", s.UserHandler.UploadMyAvatar)
+
+	wishlist := me.Group("/wishlist")
+	wishlist.Get("/", s.CustomerHandler.GetMyWishlist)
+	wishlist.Post("/", s.CustomerHandler.AddToWishlist)
+	wishlist.Delete("/:bookId", s.CustomerHandler.RemoveFromWishlist)
 
 	// --- Rute Pelanggan (terproteksi) ---
 	customer := api.Group("/customer", middleware.Protected())

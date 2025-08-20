@@ -59,7 +59,7 @@ func (r *bookRepository) FindByID(id uuid.UUID) (model.Book, error) {
 
 func (r *bookRepository) FindBySlug(slug string) (model.Book, error) {
 	var book model.Book
-	err := r.db.Preload("Category").Where("slug = ?", slug).First(&book).Error
+	err := r.db.Preload("Category").Preload("Reviews.User").Where("slug = ?", slug).First(&book).Error
 	if err != nil {
 		return book, err
 	}

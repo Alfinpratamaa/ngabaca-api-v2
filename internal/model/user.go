@@ -12,7 +12,8 @@ type User struct {
 	Role        string  `gorm:"default:'pelanggan';not null" json:"role"`
 
 	// Relasi
-	Orders           []Order   `gorm:"foreignKey:UserID" json:"orders,omitempty"`
-	VerifiedPayments []Payment `gorm:"foreignKey:VerifiedBy" json:"verified_payments,omitempty"`
-	Reviews          []Review  `gorm:"foreignKey:UserID" json:"reviews,omitempty"`
+	Orders           []Order    `gorm:"foreignKey:UserID" json:"orders,omitempty"`
+	VerifiedPayments []Payment  `gorm:"foreignKey:VerifiedBy" json:"verified_payments,omitempty"`
+	Reviews          []Review   `gorm:"foreignKey:UserID" json:"reviews,omitempty"`
+	Wishlist         []Wishlist `gorm:"foreignKey:UserID" json:"wishlist,omitempty"`
 }

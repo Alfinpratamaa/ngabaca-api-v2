@@ -20,9 +20,10 @@ import (
 // CustomerHandler menampung semua dependency yang dibutuhkan untuk fitur-fitur pelanggan.
 type CustomerHandler struct {
 	orderRepo    repository.OrderRepository
-	userRepo     repository.UserRepository // Dibutuhkan untuk mengambil detail user saat checkout
+	userRepo     repository.UserRepository
 	orderService service.OrderService
 	reviewRepo   repository.ReviewRepository
+	wishlistRepo repository.WishlistRepository
 	cfg          config.Config
 }
 
@@ -32,6 +33,7 @@ func NewCustomerHandler(
 	userRepo repository.UserRepository,
 	orderService service.OrderService,
 	reviewRepo repository.ReviewRepository,
+	wishlistRepo repository.WishlistRepository,
 	cfg config.Config,
 ) *CustomerHandler {
 	return &CustomerHandler{
@@ -39,8 +41,14 @@ func NewCustomerHandler(
 		userRepo:     userRepo,
 		reviewRepo:   reviewRepo,
 		orderService: orderService,
+		wishlistRepo: wishlistRepo,
 		cfg:          cfg,
 	}
+}
+
+// Struct untuk request body AddToWishlist
+type AddToWishlistRequest struct {
+	BookID uuid.UUID `json:"book_id" validate:"required"`
 }
 
 // GetCustomerOrders mengambil semua riwayat pesanan milik pengguna yang sedang login.
@@ -173,4 +181,84 @@ func (h *CustomerHandler) GetBookReviews(c *fiber.Ctx) error {
 	return c.JSON(reviews)
 }
 
-// Anda juga perlu memindahkan struct CreateReviewRequest ke file ini
+// Method baru untuk menambahkan buku ke wishlist
+func (h *CustomerHandler) AddToWishlist(c *fiber.Ctx) error {
+	req := new(AddToWishlistRequest)
+	if err := c.BodyParser(req); err != nil {
+		return utils.GenericError(c, fiber.StatusBadRequest, "Invalid request body")
+	}
+	if errs := utils.ValidateStruct(req); errs != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"errors": errs})
+	}
+
+	userClaims := c.Locals("user").(jwt.MapClaims)
+	userID, _ := uuid.Parse(userClaims["user_id"].(string))
+
+	// Cek apakah sudah ada di wishlist
+	exists, err := h.wishlistRepo.Check(userID, req.BookID)
+	if err != nil {
+		return utils.GenericError(c, fiber.StatusInternalServerError, "Error checking wishlist")
+	}
+	if exists {
+		return utils.GenericError(c, fiber.StatusConflict, "Book already in wishlist")
+	}
+
+	wishlistItem := &model.Wishlist{
+		UserID: userID,
+		BookID: req.BookID,
+	}
+
+	if err := h.wishlistRepo.Create(wishlistItem); err != nil {
+		return utils.GenericError(c, fiber.StatusInternalServerError, "Failed to add book to wishlist")
+	}
+
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"message": "Book added to wishlist successfully"})
+}
+
+// Method baru untuk mendapatkan isi wishlist
+func (h *CustomerHandler) GetMyWishlist(c *fiber.Ctx) error {
+	userClaims := c.Locals("user").(jwt.MapClaims)
+	userID, _ := uuid.Parse(userClaims["user_id"].(string))
+
+	wishlistItems, err := h.wishlistRepo.FindByUserID(userID)
+	if err != nil {
+		return utils.GenericError(c, fiber.StatusInternalServerError, "Could not fetch wishlist")
+	}
+
+	// Buat DTO agar respons lebih bersih (hanya menampilkan data buku)
+	type BookResponse struct {
+		ID            string `json:"ID"`
+		Title         string `json:"title"`
+		Author        string `json:"author"`
+		CoverImageURL string `json:"cover_image_url"`
+	}
+
+	response := make([]BookResponse, len(wishlistItems))
+	for i, item := range wishlistItems {
+		response[i] = BookResponse{
+			ID:            item.Book.ID.String(),
+			Title:         item.Book.Title,
+			Author:        item.Book.Author,
+			CoverImageURL: item.Book.CoverImageURL,
+		}
+	}
+
+	return c.JSON(response)
+}
+
+// Method baru untuk menghapus buku dari wishlist
+func (h *CustomerHandler) RemoveFromWishlist(c *fiber.Ctx) error {
+	bookID, err := uuid.Parse(c.Params("bookId"))
+	if err != nil {
+		return utils.GenericError(c, fiber.StatusBadRequest, "Invalid Book ID format")
+	}
+
+	userClaims := c.Locals("user").(jwt.MapClaims)
+	userID, _ := uuid.Parse(userClaims["user_id"].(string))
+
+	if err := h.wishlistRepo.Delete(userID, bookID); err != nil {
+		return utils.GenericError(c, fiber.StatusInternalServerError, "Failed to remove book from wishlist")
+	}
+
+	return c.SendStatus(fiber.StatusNoContent)
+}

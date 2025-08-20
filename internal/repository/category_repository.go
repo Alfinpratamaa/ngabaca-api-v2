@@ -13,6 +13,7 @@ import (
 
 type CategoryRepository interface {
 	FindAll() ([]CategoryResponse, error)
+	FindByID(id string) (CategoryResponse, error)
 }
 
 type categoryRepository struct {
@@ -77,4 +78,63 @@ func (r *categoryRepository) FindAll() ([]CategoryResponse, error) {
 	}
 
 	return responses, nil
+}
+
+// find category by id
+func (r *categoryRepository) FindByID(id string) (CategoryResponse, error) {
+	ctx := context.Background()
+	cacheKey := "category:by_key:" + id
+
+	var categoryResp CategoryResponse
+
+	// Coba ambil dari Redis (key khusus per ID)
+	cached, err := r.rdb.Get(ctx, cacheKey).Result()
+	if err == nil {
+		fmt.Println("CACHE HIT: Mengambil kategori dari Redis (by ID).")
+		if uErr := json.Unmarshal([]byte(cached), &categoryResp); uErr != nil {
+			return CategoryResponse{}, uErr
+		}
+		return categoryResp, nil
+	}
+	if err != redis.Nil {
+		return CategoryResponse{}, err
+	}
+
+	// Coba ambil dari cache "categories"
+	categoriesCache, err := r.rdb.Get(ctx, "categories").Result()
+	if err == nil {
+		var categories []CategoryResponse
+		if uErr := json.Unmarshal([]byte(categoriesCache), &categories); uErr == nil {
+			for _, cat := range categories {
+				if cat.ID == id {
+					fmt.Println("CACHE HIT: Mengambil kategori dari Redis (categories).")
+
+					// Simpan juga ke cache per ID biar lebih cepat diakses nanti
+					data, _ := json.Marshal(cat)
+					_ = r.rdb.Set(ctx, cacheKey, data, 24*time.Hour).Err()
+
+					return cat, nil
+				}
+			}
+		}
+	}
+
+	// Fallback terakhir: ambil dari DB
+	fmt.Println("CACHE MISS: Mengambil kategori dari Database.")
+	var category model.Category
+	if dbErr := r.db.Where("id = ?", id).First(&category).Error; dbErr != nil {
+		return CategoryResponse{}, dbErr
+	}
+
+	categoryResp = CategoryResponse{
+		ID:   category.ID.String(),
+		Name: category.Name,
+		Slug: category.Slug,
+	}
+
+	// Simpan ke cache
+	data, _ := json.Marshal(categoryResp)
+	_ = r.rdb.Set(ctx, cacheKey, data, 24*time.Hour).Err()
+
+	return categoryResp, nil
 }
