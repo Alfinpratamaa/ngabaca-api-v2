@@ -46,3 +46,10 @@ func ValidateStruct(s interface{}) []*ErrorResponse {
 func GenericError(c *fiber.Ctx, status int, message string) error {
 	return c.Status(status).JSON(fiber.Map{"error": message})
 }
+
+func DefaultString(val, fallback string) string {
+	if val != "" {
+		return val
+	}
+	return fallback
+}

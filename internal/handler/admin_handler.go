@@ -179,38 +179,144 @@ func (h *AdminHandler) AdminUpdateBook(c *fiber.Ctx) error {
 		return utils.GenericError(c, fiber.StatusBadRequest, "Invalid ID format")
 	}
 
-	// REFACTOR: Ambil data lama dari repository
+	// Ambil data lama dari DB
 	book, err := h.bookRepo.FindByID(bookID)
 	if err != nil {
-		return utils.GenericError(c, fiber.StatusNotFound, "Book not found")
-	}
-
-	// FIX: Logika update harusnya mirip dengan create, bisa menerima multipart/form-data
-	title := c.FormValue("title")
-	// ... (lakukan parsing semua field dari c.FormValue seperti di AdminCreateBook)
-
-	// Jika judul berubah, cek slug baru
-	if book.Title != title {
-		// ... (logika slug check menggunakan h.bookRepo.IsSlugExist(newSlug, bookID))
-	}
-
-	// Cek apakah ada file cover baru
-	file, _ := c.FormFile("cover_image")
-	if file != nil {
-		// Hapus cover lama dari ImageKit jika ada
-		if book.CoverImageURL != "" {
-			_ = utils.DeleteFromImageKit(h.cfg, book.CoverImageURL)
+		if err == gorm.ErrRecordNotFound {
+			return utils.GenericError(c, fiber.StatusNotFound, "Book not found")
 		}
-		// Upload cover baru
-		// ... (logika upload seperti di AdminCreateBook)
-		// book.CoverImageURL = uploadedURL
+		return utils.GenericError(c, fiber.StatusInternalServerError, "Database error")
 	}
 
-	// Update data lain
-	book.Title = title
-	// ...
+	var (
+		title, author, description, coverURL, categoryIDStr string
+		price                                               float64
+		stock, publishedYear                                int
+		categoryUUID                                        uuid.UUID
+	)
 
-	// REFACTOR: Panggil repository untuk update
+	contentType := c.Get("Content-Type")
+	if strings.Contains(contentType, "multipart/form-data") {
+		// Parsing dari form-data
+		title = c.FormValue("title", book.Title)
+		author = c.FormValue("author", book.Author)
+		description = c.FormValue("description", book.Description)
+
+		priceStr := c.FormValue("price")
+		if priceStr != "" {
+			price, err = strconv.ParseFloat(priceStr, 64)
+			if err != nil {
+				return utils.GenericError(c, fiber.StatusBadRequest, "Invalid price format")
+			}
+		} else {
+			price = book.Price
+		}
+
+		stockStr := c.FormValue("stock")
+		if stockStr != "" {
+			stock, _ = strconv.Atoi(stockStr)
+		} else {
+			stock = book.Stock
+		}
+
+		publishedYearStr := c.FormValue("published_year")
+		if publishedYearStr != "" {
+			publishedYear, _ = strconv.Atoi(publishedYearStr)
+		} else {
+			publishedYear = book.PublishedYear
+		}
+
+		categoryIDStr = c.FormValue("category_id", book.CategoryID.String())
+
+		// File cover opsional
+		file, _ := c.FormFile("cover_image")
+		if file != nil {
+			openedFile, _ := file.Open()
+			fileBytes, _ := io.ReadAll(openedFile)
+			uploadedURL, upErr := utils.UploadToImageKit(h.cfg, fileBytes, file.Filename, "covers")
+			if upErr != nil {
+				return utils.GenericError(c, fiber.StatusInternalServerError, "Image upload failed: "+upErr.Error())
+			}
+			// Hapus cover lama kalau ada
+			if book.CoverImageURL != "" {
+				_ = utils.DeleteFromImageKit(h.cfg, book.CoverImageURL)
+			}
+			coverURL = uploadedURL
+			openedFile.Close()
+		} else {
+			coverURL = book.CoverImageURL
+		}
+
+	} else { // application/json
+		req := new(model.Book)
+		if err := c.BodyParser(req); err != nil {
+			return utils.GenericError(c, fiber.StatusBadRequest, "Invalid request body")
+		}
+		title = utils.DefaultString(req.Title, book.Title)
+		author = utils.DefaultString(req.Author, book.Author)
+		description = utils.DefaultString(req.Description, book.Description)
+		if req.Price != 0 {
+			price = req.Price
+		} else {
+			price = book.Price
+		}
+		if req.Stock != 0 {
+			stock = req.Stock
+		} else {
+			stock = book.Stock
+		}
+		if req.PublishedYear != 0 {
+			publishedYear = req.PublishedYear
+		} else {
+			publishedYear = book.PublishedYear
+		}
+		if req.CategoryID != uuid.Nil {
+			categoryIDStr = req.CategoryID.String()
+		} else {
+			categoryIDStr = book.CategoryID.String()
+		}
+		if req.CoverImageURL != "" {
+			coverURL = req.CoverImageURL
+		} else {
+			coverURL = book.CoverImageURL
+		}
+	}
+
+	categoryUUID, err = uuid.Parse(categoryIDStr)
+	if err != nil {
+		return utils.GenericError(c, fiber.StatusBadRequest, "Invalid category_id format")
+	}
+
+	// Cek slug kalau judul berubah
+	if title != book.Title {
+		baseSlug := utils.GenerateSlug(title)
+		slug := baseSlug
+		i := 1
+		for {
+			exists, err := h.bookRepo.IsSlugExist(slug, book.ID)
+			if err != nil {
+				return utils.GenericError(c, fiber.StatusInternalServerError, "Error checking slug existence")
+			}
+			if !exists {
+				book.Slug = slug
+				break
+			}
+			slug = baseSlug + "-" + strconv.Itoa(i)
+			i++
+		}
+	}
+
+	// Update field buku
+	book.Title = title
+	book.Author = author
+	book.Description = description
+	book.Price = price
+	book.Stock = stock
+	book.PublishedYear = publishedYear
+	book.CoverImageURL = coverURL
+	book.CategoryID = categoryUUID
+
+	// Simpan ke DB
 	updatedBook, err := h.bookRepo.Update(&book)
 	if err != nil {
 		return utils.GenericError(c, fiber.StatusInternalServerError, "Failed to update book")
