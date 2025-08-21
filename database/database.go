@@ -56,6 +56,8 @@ func ConnectDB(cfg config.Config) *gorm.DB {
 		&model.Payment{},
 		&model.Review{},
 		&model.Wishlist{},
+		&model.Cart{},
+		&model.CartItem{},
 	)
 	if err != nil {
 		log.Fatal("Gagal melakukan migrasi:", err)

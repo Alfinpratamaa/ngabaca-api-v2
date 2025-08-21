@@ -51,8 +51,9 @@ func (h *UserHandler) GetMyProfile(c *fiber.Ctx) error {
 
 // UpdateProfileRequest adalah struct untuk validasi update profil.
 type UpdateProfileRequest struct {
-	Name        string `json:"name" validate:"omitempty,min=3"`
-	PhoneNumber string `json:"phone_number" validate:"omitempty,min=10"`
+	Name            string `json:"name" validate:"omitempty,min=3"`
+	PhoneNumber     string `json:"phone_number" validate:"omitempty,min=10"`
+	ShippingAddress string `json:"shipping_address" validate:"omitempty,min=5"`
 }
 
 // UpdateMyProfile memperbarui data pengguna yang sedang login.
@@ -80,6 +81,9 @@ func (h *UserHandler) UpdateMyProfile(c *fiber.Ctx) error {
 	}
 	if req.PhoneNumber != "" {
 		user.PhoneNumber = req.PhoneNumber
+	}
+	if req.ShippingAddress != "" {
+		user.ShippingAddress = req.ShippingAddress
 	}
 
 	// REFACTOR: Simpan perubahan melalui repository

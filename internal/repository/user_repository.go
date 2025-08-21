@@ -52,7 +52,16 @@ func (r *userRepository) FindByEmail(email string) (model.User, error) {
 	return user, err
 }
 func (r *userRepository) Create(user *model.User) (*model.User, error) {
-	err := r.db.Clauses(clause.Returning{}).Create(user).Error
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Clauses(clause.Returning{}).Create(user).Error; err != nil {
+			return err
+		}
+		cart := model.Cart{UserID: user.ID}
+		if err := tx.Create(&cart).Error; err != nil {
+			return err
+		}
+		return nil
+	})
 	return user, err
 }
 

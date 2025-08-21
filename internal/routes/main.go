@@ -61,6 +61,12 @@ func Setup(s *server.Server) {
 	// PINDAHKAN RUTE CREATE REVIEW KE SINI
 	customer.Post("/books/:id/reviews", s.CustomerHandler.CreateReview)
 
+	cart := customer.Group("/cart")
+	cart.Get("/", s.CustomerHandler.GetMyCart)
+	cart.Post("/", s.CustomerHandler.AddToCart)
+	cart.Put("/:itemId", s.CustomerHandler.UpdateCartItem)
+	cart.Delete("/:itemId", s.CustomerHandler.RemoveFromCart)
+
 	// Rute untuk Admin (memerlukan login dengan role admin)
 	admin := api.Group("/admin", middleware.Protected(), middleware.CheckRole("admin"))
 	admin.Get("/books", s.AdminHandler.AdminGetBooks)

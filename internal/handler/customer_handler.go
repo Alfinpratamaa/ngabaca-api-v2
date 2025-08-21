@@ -24,6 +24,7 @@ type CustomerHandler struct {
 	orderService service.OrderService
 	reviewRepo   repository.ReviewRepository
 	wishlistRepo repository.WishlistRepository
+	cartRepo     repository.CartRepository
 	cfg          config.Config
 }
 
@@ -34,6 +35,7 @@ func NewCustomerHandler(
 	orderService service.OrderService,
 	reviewRepo repository.ReviewRepository,
 	wishlistRepo repository.WishlistRepository,
+	cartRepo repository.CartRepository,
 	cfg config.Config,
 ) *CustomerHandler {
 	return &CustomerHandler{
@@ -42,6 +44,7 @@ func NewCustomerHandler(
 		reviewRepo:   reviewRepo,
 		orderService: orderService,
 		wishlistRepo: wishlistRepo,
+		cartRepo:     cartRepo,
 		cfg:          cfg,
 	}
 }
@@ -261,4 +264,170 @@ func (h *CustomerHandler) RemoveFromWishlist(c *fiber.Ctx) error {
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// DTO untuk response Cart
+type CartResponse struct {
+	ID     uuid.UUID          `json:"id"`
+	UserID uuid.UUID          `json:"userId"`
+	Items  []CartItemResponse `json:"items"`
+}
+
+type BookResponses struct {
+	ID            uuid.UUID `json:"id"`
+	Title         string    `json:"title"`
+	Author        string    `json:"author"`
+	Price         float64   `json:"price"`
+	CoverImageURL string    `json:"cover_image_url"`
+	Stock         int       `json:"stock"`
+}
+
+type CartItemResponse struct {
+	ID       uuid.UUID     `json:"id"`
+	Quantity int           `json:"quantity"`
+	Book     BookResponses `json:"book"`
+}
+
+// Struct untuk request body AddToCart
+type AddToCartRequest struct {
+	BookID   uuid.UUID `json:"book_id" validate:"required"`
+	Quantity int       `json:"quantity" validate:"required,min=1"`
+}
+
+// Method baru untuk mendapatkan isi keranjang
+func (h *CustomerHandler) GetMyCart(c *fiber.Ctx) error {
+	userClaims := c.Locals("user").(jwt.MapClaims)
+	userID, _ := uuid.Parse(userClaims["user_id"].(string))
+
+	cart, err := h.cartRepo.GetCartByUserID(userID)
+	if err != nil {
+		return utils.GenericError(c, fiber.StatusNotFound, "Could not fetch cart")
+	}
+
+	// Mapping ke DTO
+	response := CartResponse{
+		ID:     cart.ID,
+		UserID: cart.UserID,
+		Items:  []CartItemResponse{},
+	}
+
+	for _, item := range cart.CartItems {
+		book := item.Book
+
+		bookResp := BookResponses{
+			ID:            book.ID,
+			Title:         book.Title,
+			Author:        book.Author,
+			Price:         book.Price,
+			CoverImageURL: book.CoverImageURL,
+			Stock:         book.Stock,
+		}
+
+		itemResp := CartItemResponse{
+			ID:       item.ID,
+			Quantity: item.Quantity,
+			Book:     bookResp,
+		}
+
+		response.Items = append(response.Items, itemResp)
+	}
+
+	return c.JSON(response)
+}
+
+// Method baru untuk menambahkan item ke keranjang
+func (h *CustomerHandler) AddToCart(c *fiber.Ctx) error {
+	req := new(AddToCartRequest)
+	if err := c.BodyParser(req); err != nil {
+		return utils.GenericError(c, fiber.StatusBadRequest, "Invalid request body")
+	}
+	if errs := utils.ValidateStruct(req); errs != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"errors": errs})
+	}
+
+	userClaims := c.Locals("user").(jwt.MapClaims)
+	userID, _ := uuid.Parse(userClaims["user_id"].(string))
+
+	err := h.cartRepo.AddItem(userID, req.BookID, req.Quantity)
+	if err != nil {
+		return utils.GenericError(c, fiber.StatusInternalServerError, err.Error())
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "Item added to cart successfully"})
+}
+
+// Method baru untuk memperbarui item di keranjang
+func (h *CustomerHandler) UpdateCartItem(c *fiber.Ctx) error {
+	itemID, err := uuid.Parse(c.Params("itemId"))
+	if err != nil {
+		return utils.GenericError(c, fiber.StatusBadRequest, "Invalid Item ID format")
+	}
+
+	req := new(AddToCartRequest) // Kita bisa pakai struct yang sama untuk update
+	if err := c.BodyParser(req); err != nil {
+		return utils.GenericError(c, fiber.StatusBadRequest, "Invalid request body")
+	}
+	if errs := utils.ValidateStruct(req); errs != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"errors": errs})
+	}
+
+	userClaims := c.Locals("user").(jwt.MapClaims)
+	userID, _ := uuid.Parse(userClaims["user_id"].(string))
+
+	err = h.cartRepo.UpdateCartItem(userID, itemID, req.Quantity)
+	if err != nil {
+		return utils.GenericError(c, fiber.StatusInternalServerError, "Failed to update cart item")
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "Cart item updated successfully"})
+}
+
+func (h *CustomerHandler) RemoveFromCart(c *fiber.Ctx) error {
+	bookID, err := uuid.Parse(c.Params("bookId"))
+	if err != nil {
+		return utils.GenericError(c, fiber.StatusBadRequest, "Invalid Book ID format")
+	}
+
+	userClaims := c.Locals("user").(jwt.MapClaims)
+	userID, _ := uuid.Parse(userClaims["user_id"].(string))
+
+	if err := h.cartRepo.RemoveItem(userID, bookID); err != nil {
+		return utils.GenericError(c, fiber.StatusInternalServerError, "Failed to remove item from cart")
+	}
+
+	return c.SendStatus(fiber.StatusNoContent)
+
+}
+
+type SyncCartRequest struct {
+	Items []struct {
+		BookID   uuid.UUID `json:"book_id" validate:"required"`
+		Quantity int       `json:"quantity" validate:"required,min=1"`
+	} `json:"items" validate:"required,dive"`
+}
+
+// Method baru untuk sinkronisasi keranjang
+func (h *CustomerHandler) SyncCart(c *fiber.Ctx) error {
+	req := new(SyncCartRequest)
+	if err := c.BodyParser(req); err != nil {
+		return utils.GenericError(c, fiber.StatusBadRequest, "Invalid request body")
+	}
+	if errs := utils.ValidateStruct(req); errs != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"errors": errs})
+	}
+
+	userClaims := c.Locals("user").(jwt.MapClaims)
+	userID, _ := uuid.Parse(userClaims["user_id"].(string))
+
+	// Looping setiap item dari cart lokal dan tambahkan ke cart di database
+	// Repository AddItem kita sudah pintar menangani item yang sudah ada (akan menambah quantity)
+	for _, item := range req.Items {
+		err := h.cartRepo.AddItem(userID, item.BookID, item.Quantity)
+		if err != nil {
+			// Lanjutkan meski ada error di satu item, atau bisa juga dibatalkan semua
+			fmt.Printf("Warning: could not sync item %s for user %s: %v\n", item.BookID, userID, err)
+		}
+	}
+
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{"message": "Cart synchronized successfully"})
 }
