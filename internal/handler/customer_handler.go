@@ -359,6 +359,7 @@ func (h *CustomerHandler) AddToCart(c *fiber.Ctx) error {
 // Method baru untuk memperbarui item di keranjang
 func (h *CustomerHandler) UpdateCartItem(c *fiber.Ctx) error {
 	itemID, err := uuid.Parse(c.Params("itemId"))
+
 	if err != nil {
 		return utils.GenericError(c, fiber.StatusBadRequest, "Invalid Item ID format")
 	}
@@ -383,20 +384,19 @@ func (h *CustomerHandler) UpdateCartItem(c *fiber.Ctx) error {
 }
 
 func (h *CustomerHandler) RemoveFromCart(c *fiber.Ctx) error {
-	bookID, err := uuid.Parse(c.Params("bookId"))
+	itemID, err := uuid.Parse(c.Params("itemId"))
 	if err != nil {
-		return utils.GenericError(c, fiber.StatusBadRequest, "Invalid Book ID format")
+		return utils.GenericError(c, fiber.StatusBadRequest, "Invalid Item ID format")
 	}
 
 	userClaims := c.Locals("user").(jwt.MapClaims)
 	userID, _ := uuid.Parse(userClaims["user_id"].(string))
 
-	if err := h.cartRepo.RemoveItem(userID, bookID); err != nil {
+	if err := h.cartRepo.RemoveItem(userID, itemID); err != nil {
 		return utils.GenericError(c, fiber.StatusInternalServerError, "Failed to remove item from cart")
 	}
 
 	return c.SendStatus(fiber.StatusNoContent)
-
 }
 
 type SyncCartRequest struct {

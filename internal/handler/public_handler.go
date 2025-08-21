@@ -40,7 +40,7 @@ type CategorySummary struct {
 
 // BookDetailResponse adalah struct utama untuk respons JSON.
 type BookDetailResponse struct {
-	ID            uuid.UUID       `json:"ID"`
+	ID            uuid.UUID       `json:"id"`
 	Title         string          `json:"title"`
 	Slug          string          `json:"slug"`
 	PublishedYear int             `json:"published_year"`
