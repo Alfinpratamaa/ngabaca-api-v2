@@ -41,6 +41,7 @@ func Setup(s *server.Server) {
 	auth.Post("/register", s.AuthHandler.Register)
 	auth.Get("/google", s.AuthHandler.GoogleLogin)
 	auth.Get("/google/callback", s.AuthHandler.GoogleCallback)
+	auth.Post("/google/mobile", s.AuthHandler.GoogleMobileSignIn)
 
 	// --- Rute Profil Pengguna (terproteksi) ---
 	me := api.Group("/me", middleware.Protected())

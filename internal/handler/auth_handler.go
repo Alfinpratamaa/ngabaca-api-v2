@@ -2,6 +2,8 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"ngabaca/config"
 	"ngabaca/internal/model"
 	"ngabaca/internal/repository"
@@ -11,6 +13,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
+	"google.golang.org/api/idtoken"
 	oauth2v2 "google.golang.org/api/oauth2/v2"
 	"gorm.io/gorm"
 )
@@ -20,13 +23,8 @@ type AuthHandler struct {
 	cfg      config.Config
 }
 
-var expiredTime = time.Now().Add(time.Hour * 24).Unix()
-
 func NewAuthHandler(userRepo repository.UserRepository, cfg config.Config) *AuthHandler {
-	return &AuthHandler{
-		userRepo: userRepo,
-		cfg:      cfg,
-	}
+	return &AuthHandler{userRepo: userRepo, cfg: cfg}
 }
 
 type RegisterRequest struct {
@@ -39,6 +37,49 @@ type LoginRequest struct {
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required"`
 }
+
+// ========== UTIL ==========
+
+func (h *AuthHandler) signAppJWT(user *model.User, dur time.Duration) (string, error) {
+	now := time.Now()
+	claims := jwt.MapClaims{
+		"sub":     user.ID.String(),
+		"user_id": user.ID.String(),
+		"role":    user.Role,
+		"iat":     now.Unix(),
+		"exp":     now.Add(dur).Unix(),
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString([]byte(h.cfg.JWTSecret))
+}
+
+// Verifikasi idToken dari Google untuk beberapa audience (Android/iOS/Web)
+func (h *AuthHandler) verifyGoogleIDToken(ctx context.Context, idTok string) (*idtoken.Payload, error) {
+	// daftar clientID yang sah. Simpan di config kamu.
+	auds := []string{
+		h.cfg.GoogleAndroidClientID,
+		h.cfg.GoogleIOSClientID,
+		h.cfg.GoogleClientID,
+		h.cfg.GoogleExpoClientID,
+	}
+	var lastErr error
+	for _, aud := range auds {
+		if aud == "" {
+			continue
+		}
+		pl, err := idtoken.Validate(ctx, idTok, aud)
+		if err == nil {
+			return pl, nil
+		}
+		lastErr = err
+	}
+	if lastErr == nil {
+		lastErr = errors.New("no google audiences configured")
+	}
+	return nil, lastErr
+}
+
+// ========== HANDLERS ==========
 
 func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	req := new(RegisterRequest)
@@ -61,7 +102,6 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 		Role:     "pelanggan",
 	}
 
-	// REFACTOR: Panggil repository untuk membuat user
 	createdUser, err := h.userRepo.Create(user)
 	if err != nil {
 		return utils.GenericError(c, fiber.StatusConflict, err.Error())
@@ -79,7 +119,6 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"errors": errs})
 	}
 
-	// REFACTOR: Panggil repository untuk mencari user
 	user, err := h.userRepo.FindByEmail(req.Email)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -92,21 +131,77 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		return utils.GenericError(c, fiber.StatusUnauthorized, "Invalid email or password")
 	}
 
-	// Buat JWT Claims
-	claims := jwt.MapClaims{
-		"user_id": user.ID.String(),
-		"role":    user.Role,
-		"exp":     expiredTime,
-	}
-
-	// Buat token menggunakan config dari handler
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	t, err := token.SignedString([]byte(h.cfg.JWTSecret))
+	t, err := h.signAppJWT(&user, 24*time.Hour)
 	if err != nil {
 		return utils.GenericError(c, fiber.StatusInternalServerError, "Failed to create token")
 	}
-
 	return c.JSON(fiber.Map{"token": t})
+}
+
+// ======= FLOW WEB (tetap ada) =======
+// GoogleLogin & GoogleCallback kamu biarkan seperti semula…
+
+// ======= FLOW MOBILE/EXPO =======
+
+type googleMobileReq struct {
+	IDToken string `json:"idToken"` // dari Expo (response.authentication.idToken)
+}
+
+func (h *AuthHandler) GoogleMobileSignIn(c *fiber.Ctx) error {
+	var req googleMobileReq
+	if err := json.Unmarshal(c.Body(), &req); err != nil || req.IDToken == "" {
+		return utils.GenericError(c, fiber.StatusBadRequest, "idToken is required")
+	}
+
+	// 1) Verifikasi idToken ke Google
+	pl, err := h.verifyGoogleIDToken(c.Context(), req.IDToken)
+	if err != nil {
+		return utils.GenericError(c, fiber.StatusUnauthorized, "Invalid Google ID token: "+err.Error())
+	}
+
+	// 2) Ambil claims penting
+	// Catatan: kunci claim umum: "sub", "email", "name", "picture", "email_verified"
+	sub, _ := pl.Claims["sub"].(string)
+	email, _ := pl.Claims["email"].(string)
+	name, _ := pl.Claims["name"].(string)
+	picture, _ := pl.Claims["picture"].(string)
+	emailVerified, _ := pl.Claims["email_verified"].(bool)
+
+	if email == "" {
+		// sebagian akun enterprise bisa restrict email. Kamu bisa fallback ke sub sebagai identifier.
+		return utils.GenericError(c, fiber.StatusBadRequest, "Email not provided by Google")
+	}
+
+	// 3) Find or create user
+	user, err := h.userRepo.FindOrCreateFromGoogleClaims(repository.GoogleClaims{
+		Sub:            sub,
+		Email:          email,
+		Name:           name,
+		Picture:        picture,
+		EmailVerified:  emailVerified,
+		DefaultAppRole: "pelanggan",
+	})
+	if err != nil {
+		return utils.GenericError(c, fiber.StatusInternalServerError, "Database transaction error: "+err.Error())
+	}
+
+	// 4) Buat JWT lokal
+	t, err := h.signAppJWT(&user, 72*time.Hour)
+	if err != nil {
+		return utils.GenericError(c, fiber.StatusInternalServerError, "Failed to create local JWT")
+	}
+
+	// (Opsional) kirim juga info user dasar buat ditampilkan
+	return c.JSON(fiber.Map{
+		"token": t,
+		"user": fiber.Map{
+			"id":      user.ID.String(),
+			"name":    user.Name,
+			"email":   user.Email,
+			"role":    user.Role,
+			"picture": picture,
+		},
+	})
 }
 
 func (h *AuthHandler) GoogleLogin(c *fiber.Ctx) error {

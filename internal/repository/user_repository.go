@@ -9,6 +9,15 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+type GoogleClaims struct {
+	Sub            string
+	Email          string
+	Name           string
+	Picture        string
+	EmailVerified  bool
+	DefaultAppRole string
+}
+
 // UserRepository mendefinisikan kontrak untuk data pengguna.
 type UserRepository interface {
 	FindAll() ([]model.User, error)
@@ -18,10 +27,49 @@ type UserRepository interface {
 	FindByEmail(email string) (model.User, error)
 	Create(user *model.User) (*model.User, error)
 	FindOrCreateByGoogle(googleUser *oauth2v2.Userinfo) (model.User, error)
+	FindOrCreateFromGoogleClaims(claims GoogleClaims) (model.User, error)
 }
 
 type userRepository struct {
 	db *gorm.DB
+}
+
+// FindOrCreateFromGoogleClaims implements UserRepository.
+func (r *userRepository) FindOrCreateFromGoogleClaims(claims GoogleClaims) (model.User, error) {
+	var user model.User
+
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		// Coba cari user berdasarkan Google ID
+		if err := tx.Where("google_id = ?", claims.Sub).First(&user).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				// Jika tidak ada, coba cari berdasarkan email
+				if err := tx.Where("email = ?", claims.Email).First(&user).Error; err == nil {
+					// Email ada, user pernah daftar manual. Update Google ID-nya.
+					user.GoogleID = &claims.Sub
+					user.Avatar = claims.Picture // Update avatar juga
+					return tx.Save(&user).Error
+				}
+				// Jika email juga tidak ada, buat user baru
+				newUser := model.User{
+					Name:     claims.Name,
+					Email:    claims.Email,
+					GoogleID: &claims.Sub,
+					Avatar:   claims.Picture,
+					Role:     "pelanggan",
+				}
+				if err := tx.Create(&newUser).Error; err != nil {
+					return err
+				}
+				user = newUser
+			} else {
+				// Error lain saat query
+				return err
+			}
+		}
+		return nil
+	})
+
+	return user, err
 }
 
 // NewUserRepository adalah constructor untuk userRepository.
