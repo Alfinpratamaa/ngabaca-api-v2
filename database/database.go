@@ -23,6 +23,8 @@ func ConnectRedis(cfg config.Config) {
 		DB:       cfg.RedisDB,
 	})
 
+	fmt.Println("DEBUG RedisAddr:", cfg.RedisAddr)
+
 	// Tes koneksi
 	_, err := RDB.Ping(context.Background()).Result()
 	if err != nil {
